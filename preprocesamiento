@@ -51,7 +51,7 @@ def augment_image(image):
 
     return bright
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
         print("Uso: python preprocesamiento.py <ruta_imagen>")
