@@ -1,0 +1,68 @@
+import os
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+import tensorflow as tf
+from tensorflow.keras.utils import to_categorical
+
+# Importar funciones
+from Autoencoder import build_autoencoder
+from Clasificador_CNN import build_classifier
+from preprocesamiento import preprocess_image, augment_image
+
+# Ruta a tu carpeta de imágenes
+FOLDER = "imgns rx"  # Cambia si tu carpeta se llama diferente
+X, y = [], []
+errores = 0
+
+for root, dirs, files in os.walk(FOLDER):
+    label = os.path.basename(root)
+    for fname in files:
+        if fname.lower().endswith(('.jpg', '.jpeg', '.png')):
+            path = os.path.join(root, fname)
+            try:
+                img = preprocess_image(path)
+                img_aug = augment_image((img.squeeze() * 255).astype(np.uint8))
+                img_aug = img_aug.astype('float32') / 255.0
+                img_aug = np.expand_dims(img_aug, axis=-1)
+
+                if img_aug.shape == (224, 224, 1):
+                    X.append(img_aug)
+                    y.append(label)
+                else:
+                    print(f"[FORMA INVÁLIDA] {path} shape: {img_aug.shape}")
+                    errores += 1
+            except Exception as e:
+                print(f"[ERROR] {path}: {e}")
+                errores += 1
+
+print(f"\nTotal imágenes válidas: {len(X)} | Errores: {errores}")
+if len(X) == 0:
+    raise RuntimeError("No se cargaron imágenes válidas.")
+
+# Codificar etiquetas
+encoder = LabelEncoder()
+y_encoded = encoder.fit_transform(y)
+y_cat = to_categorical(y_encoded)
+X = np.array(X)
+
+# Modelos
+autoencoder = build_autoencoder()
+classifier = build_classifier(num_classes=len(encoder.classes_))
+
+# Modelo completo
+input_img = tf.keras.Input(shape=(224, 224, 1))
+enhanced_img = autoencoder(input_img)
+prediction = classifier(enhanced_img)
+full_model = tf.keras.Model(inputs=input_img, outputs=prediction)
+
+# Entrenamiento
+full_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+full_model.fit(X, y_cat, epochs=10, batch_size=8)
+
+# Predicciones
+print("\nResultados de clasificación por imagen:\n")
+for i, img in enumerate(X):
+    pred = full_model.predict(np.expand_dims(img, axis=0), verbose=0)
+    pred_class = np.argmax(pred)
+    prob = pred[0][pred_class]
+    print(f"imgns rx {i+1:03d} → Predicción: {encoder.classes_[pred_class]} (Prob: {prob:.2f})")
