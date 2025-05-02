@@ -1,0 +1,61 @@
+import cv2
+import numpy as np
+import random
+
+# ===============================
+# 1. Preprocesamiento de Imagen
+# ===============================
+def preprocess_image(image_path, target_size=(224, 224)):
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise ValueError(f"No se pudo cargar la imagen: {image_path}")
+
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    img_clahe = clahe.apply(img)
+
+    img_resized = cv2.resize(img_clahe, target_size, interpolation=cv2.INTER_AREA)
+
+    edges = cv2.Canny(img_resized, threshold1=30, threshold2=100)
+    combined = cv2.addWeighted(img_resized, 0.8, edges, 0.2, 0)
+
+    final_img = combined.astype('float32') / 255.0
+    final_img = np.expand_dims(final_img, axis=-1)
+    return final_img
+
+# =========================================
+# 2. Data Augmentation Manual con OpenCV
+# =========================================
+def augment_image(image):
+    h, w = image.shape[:2]
+    angle = random.uniform(-10, 10)
+    M_rot = cv2.getRotationMatrix2D((w//2, h//2), angle, 1)
+    rotated = cv2.warpAffine(image, M_rot, (w, h), borderMode=cv2.BORDER_REFLECT)
+
+    tx = random.uniform(-0.1, 0.1) * w
+    ty = random.uniform(-0.1, 0.1) * h
+    M_trans = np.float32([[1, 0, tx], [0, 1, ty]])
+    translated = cv2.warpAffine(rotated, M_trans, (w, h), borderMode=cv2.BORDER_REFLECT)
+
+    zoom_factor = random.uniform(0.9, 1.1)
+    new_w, new_h = int(w * zoom_factor), int(h * zoom_factor)
+    zoomed = cv2.resize(translated, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+    if zoom_factor < 1:
+        pad_w = (w - new_w) // 2
+        pad_h = (h - new_h) // 2
+        zoomed = cv2.copyMakeBorder(zoomed, pad_h, pad_h, pad_w, pad_w, borderType=cv2.BORDER_REFLECT)
+    else:
+        zoomed = zoomed[(new_h - h)//2:(new_h - h)//2 + h, (new_w - w)//2:(new_w - w)//2 + w]
+
+    brightness = random.uniform(0.8, 1.2)
+    bright = np.clip(zoomed * brightness, 0, 255).astype(np.uint8)
+
+    return bright
+
+if _name_ == "_main_":
+    import sys
+    if len(sys.argv) < 2:
+        print("Uso: python preprocesamiento.py <ruta_imagen>")
+    else:
+        img_path = sys.argv[1]
+        pre_img = preprocess_image(img_path)
+        print("Imagen preprocesada con forma:", pre_img.shape)
