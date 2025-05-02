@@ -20,6 +20,6 @@ def build_classifier(input_shape=(224, 224, 1), num_classes=6):
     return model
 
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     model = build_classifier()
     model.summary()
