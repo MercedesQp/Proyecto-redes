@@ -53,9 +53,27 @@ full_model = tf.keras.Model(inputs=input_img, outputs=prediction)
 full_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 full_model.fit(X, y_cat, epochs=10, batch_size=8)
 
+history = full_model.fit(X, y_cat, epochs=10, batch_size=8)
+
 print("\nResultados de clasificación por imagen:\n")
 for i, img in enumerate(X):
     pred = full_model.predict(np.expand_dims(img, axis=0), verbose=0)
     pred_class = np.argmax(pred)
     prob = pred[0][pred_class]
     print(f"imgns rx {i+1:03d} → Predicción: {encoder.classes_[pred_class]} (Prob: {prob:.2f})")
+
+plt.plot(history.history['accuracy'], label='Precisión entrenamiento')
+plt.title('Curva de Precisión')
+plt.xlabel('Épocas')
+plt.ylabel('Precisión')
+plt.grid(True)
+plt.legend()
+plt.show()
+
+plt.plot(history.history['loss'], label='Pérdida entrenamiento', color='red')
+plt.title('Curva de Pérdida')
+plt.xlabel('Épocas')
+plt.ylabel('Pérdida')
+plt.grid(True)
+plt.legend()
+plt.show()
