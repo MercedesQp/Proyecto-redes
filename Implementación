@@ -3,14 +3,12 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
-
-# Importar funciones
 from Autoencoder import build_autoencoder
 from Clasificador_CNN import build_classifier
 from preprocesamiento import preprocess_image, augment_image
 
-# Ruta a tu carpeta de imágenes
-FOLDER = "imgns rx"  # Cambia si tu carpeta se llama diferente
+
+FOLDER = "cervical ap.zip" 
 X, y = [], []
 errores = 0
 
@@ -39,27 +37,22 @@ print(f"\nTotal imágenes válidas: {len(X)} | Errores: {errores}")
 if len(X) == 0:
     raise RuntimeError("No se cargaron imágenes válidas.")
 
-# Codificar etiquetas
 encoder = LabelEncoder()
 y_encoded = encoder.fit_transform(y)
 y_cat = to_categorical(y_encoded)
 X = np.array(X)
 
-# Modelos
 autoencoder = build_autoencoder()
-classifier = build_classifier(num_classes=len(encoder.classes_))
+classifier = build_classifier(num_classes=len(encoder.classes_)
 
-# Modelo completo
 input_img = tf.keras.Input(shape=(224, 224, 1))
 enhanced_img = autoencoder(input_img)
 prediction = classifier(enhanced_img)
 full_model = tf.keras.Model(inputs=input_img, outputs=prediction)
 
-# Entrenamiento
 full_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 full_model.fit(X, y_cat, epochs=10, batch_size=8)
 
-# Predicciones
 print("\nResultados de clasificación por imagen:\n")
 for i, img in enumerate(X):
     pred = full_model.predict(np.expand_dims(img, axis=0), verbose=0)
