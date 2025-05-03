@@ -51,8 +51,6 @@ prediction = classifier(enhanced_img)
 full_model = tf.keras.Model(inputs=input_img, outputs=prediction)
 
 full_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-full_model.fit(X, y_cat, epochs=10, batch_size=8)
-
 history = full_model.fit(X, y_cat, epochs=10, batch_size=8)
 
 print("\nResultados de clasificación por imagen:\n")
