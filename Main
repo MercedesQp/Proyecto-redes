@@ -1,77 +1,43 @@
-import os
-import numpy as np
-from sklearn.preprocessing import LabelEncoder
-import tensorflow as tf
-from tensorflow.keras.utils import to_categorical
-from Autoencoder import build_autoencoder
-from Clasificador_CNN import build_classifier
-from preprocesamiento import preprocess_image, augment_image
+from part3_pipeline import load_data, prepare_labels, split_data
+from part2_model import build_encoder, build_autoencoder_classifier, compile_model
+from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
+# 1. Carga y preparación de datos
+FOLDER = r"E:\imagenes_rx"
+X, y = load_data(FOLDER)
+y_cat, label_encoder = prepare_labels(y)
+X_train, X_val, y_train, y_val = split_data(X, y_cat)
 
-FOLDER = "cervical ap.zip" 
-X, y = [], []
-errores = 0
+# 2. Construcción y compilación del modelo
+encoder = build_encoder()
+model = build_autoencoder_classifier(encoder, num_classes=y_cat.shape[1])
+compile_model(model)
 
-for root, dirs, files in os.walk(FOLDER):
-    label = os.path.basename(root)
-    for fname in files:
-        if fname.lower().endswith(('.jpg', '.jpeg', '.png')):
-            path = os.path.join(root, fname)
-            try:
-                img = preprocess_image(path)
-                img_aug = augment_image((img.squeeze() * 255).astype(np.uint8))
-                img_aug = img_aug.astype('float32') / 255.0
-                img_aug = np.expand_dims(img_aug, axis=-1)
+# 3. Entrenamiento
+history = model.fit(X_train, y_train,
+                    epochs=10, batch_size=8,
+                    validation_data=(X_val, y_val))
 
-                if img_aug.shape == (224, 224, 1):
-                    X.append(img_aug)
-                    y.append(label)
-                else:
-                    print(f"[FORMA INVÁLIDA] {path} shape: {img_aug.shape}")
-                    errores += 1
-            except Exception as e:
-                print(f"[ERROR] {path}: {e}")
-                errores += 1
+# 4. Evaluación y métricas
+y_true = y_val.argmax(axis=1)
+y_pred_probs = model.predict(X_val, verbose=0)
+y_pred = y_pred_probs.argmax(axis=1)
 
-print(f"\nTotal imágenes válidas: {len(X)} | Errores: {errores}")
-if len(X) == 0:
-    raise RuntimeError("No se cargaron imágenes válidas.")
+print("\n--- Classification Report ---\n")
+print(classification_report(y_true, y_pred,
+      target_names=label_encoder.classes_))
 
-encoder = LabelEncoder()
-y_encoded = encoder.fit_transform(y)
-y_cat = to_categorical(y_encoded)
-X = np.array(X)
+# Matriz de confusión
+cm = confusion_matrix(y_true, y_pred)
+disp = ConfusionMatrixDisplay(cm, display_labels=label_encoder.classes_)
+disp.plot(cmap='Blues'); plt.title("Matriz de Confusión"); plt.show()
 
-autoencoder = build_autoencoder()
-classifier = build_classifier(num_classes=len(encoder.classes_)
+# Curvas de entrenamiento
+plt.plot(history.history['accuracy'], label='Acc Train')
+plt.plot(history.history['val_accuracy'], label='Acc Val')
+plt.title('Precisión'); plt.xlabel('Épocas'); plt.legend(); plt.show()
 
-input_img = tf.keras.Input(shape=(224, 224, 1))
-enhanced_img = autoencoder(input_img)
-prediction = classifier(enhanced_img)
-full_model = tf.keras.Model(inputs=input_img, outputs=prediction)
-
-full_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-history = full_model.fit(X, y_cat, epochs=10, batch_size=8)
-
-print("\nResultados de clasificación por imagen:\n")
-for i, img in enumerate(X):
-    pred = full_model.predict(np.expand_dims(img, axis=0), verbose=0)
-    pred_class = np.argmax(pred)
-    prob = pred[0][pred_class]
-    print(f"imgns rx {i+1:03d} → Predicción: {encoder.classes_[pred_class]} (Prob: {prob:.2f})")
-
-plt.plot(history.history['accuracy'], label='Precisión entrenamiento')
-plt.title('Curva de Precisión')
-plt.xlabel('Épocas')
-plt.ylabel('Precisión')
-plt.grid(True)
-plt.legend()
-plt.show()
-
-plt.plot(history.history['loss'], label='Pérdida entrenamiento', color='red')
-plt.title('Curva de Pérdida')
-plt.xlabel('Épocas')
-plt.ylabel('Pérdida')
-plt.grid(True)
-plt.legend()
-plt.show()
+plt.plot(history.history['loss'], label='Loss Train')
+plt.plot(history.history['val_loss'], label='Loss Val')
+plt.title('Pérdida'); plt.xlabel('Épocas'); plt.legend(); plt.show()
