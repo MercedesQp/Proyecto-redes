@@ -3,23 +3,23 @@ from part2_model import build_encoder, build_autoencoder_classifier, compile_mod
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
-# 1. Carga y preparación de datos
-FOLDER = r"E:\imagenes_rx"
+
+FOLDER = r"imagenes_rx"
 X, y = load_data(FOLDER)
 y_cat, label_encoder = prepare_labels(y)
 X_train, X_val, y_train, y_val = split_data(X, y_cat)
 
-# 2. Construcción y compilación del modelo
+# Construcción y compilación del modelo
 encoder = build_encoder()
 model = build_autoencoder_classifier(encoder, num_classes=y_cat.shape[1])
 compile_model(model)
 
-# 3. Entrenamiento
+# entrenamiento
 history = model.fit(X_train, y_train,
                     epochs=10, batch_size=8,
                     validation_data=(X_val, y_val))
 
-# 4. Evaluación y métricas
+# evaluación y métricas
 y_true = y_val.argmax(axis=1)
 y_pred_probs = model.predict(X_val, verbose=0)
 y_pred = y_pred_probs.argmax(axis=1)
@@ -28,12 +28,10 @@ print("\n--- Classification Report ---\n")
 print(classification_report(y_true, y_pred,
       target_names=label_encoder.classes_))
 
-# Matriz de confusión
 cm = confusion_matrix(y_true, y_pred)
 disp = ConfusionMatrixDisplay(cm, display_labels=label_encoder.classes_)
 disp.plot(cmap='Blues'); plt.title("Matriz de Confusión"); plt.show()
 
-# Curvas de entrenamiento
 plt.plot(history.history['accuracy'], label='Acc Train')
 plt.plot(history.history['val_accuracy'], label='Acc Val')
 plt.title('Precisión'); plt.xlabel('Épocas'); plt.legend(); plt.show()
